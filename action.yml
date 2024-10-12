@@ -19,6 +19,23 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Update comment with "Updating" status
+      uses: peter-evans/create-or-update-comment@v3
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-id: ${{ steps.fc.outputs.comment-id }}
+        body: |
+            <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
+            ## Cloudflare Pages Build Status
+            
+            | Key | Value |
+            | --- | ----- |
+            | Branch | ${{ github.head_ref }} |
+            | Commit | ${{ github.sha }} |
+            | Status | Updating... |
+            
+            Build in progress. This comment will be updated once the build is complete.
+        edit-mode: replace
     - name: Poll Cloudflare and Fetch logs
       shell: bash
       run: |
@@ -130,3 +147,33 @@ runs:
             echo "Failed to fetch logs: Build did not complete successfully"
             exit 1
         fi
+                
+    - name: Update comment with build results
+      if: always()
+      uses: peter-evans/create-or-update-comment@v3
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-id: ${{ steps.fc.outputs.comment-id }}
+        body: |
+            <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
+            ## Cloudflare Pages Build Logs
+            
+            | Key | Value |
+            | --- | ----- |
+            | Branch | ${{ github.head_ref }} |
+            | Commit | ${{ github.sha }} |
+            | Build Time | ${{ env.BUILD_TIME }} |
+            | Status | ${{ env.BUILD_STATUS }} |
+            
+            <details>
+            <summary>Click to expand build logs</summary>
+                    
+            ${{ env.logs }}
+                    
+            </details>
+        edit-mode: replace
+
+    - name: Post build status
+      if: always()
+      run: |
+         echo "Build status: ${{ job.status }}"
