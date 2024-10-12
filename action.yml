@@ -18,6 +18,9 @@ inputs:
   GITHUB_TOKEN:
     description: 'GitHub token for creating/updating comments'
     required: true
+  COMMIT_SHA:
+    description: 'The SHA of the commit that triggered the workflow'
+    required: true
 
 runs:
   using: "composite"
@@ -56,6 +59,7 @@ runs:
         ACCOUNT_ID: ${{ inputs.ACCOUNT_ID }}
         PROJECT_NAME: ${{ inputs.PROJECT_NAME }}
         PR_BRANCH: ${{ github.head_ref }}
+        COMMIT_SHA: ${{ inputs.COMMIT_SHA }}
       run: |
         fetch_latest_deployment() {
             RESPONSE=$(curl -s -X GET \
@@ -184,7 +188,7 @@ runs:
           | Key | Value |
           | --- | ----- |
           | Branch | ${{ github.head_ref }} |
-          | Commit | ${{ github.sha }} |
+          | Commit | ${{ inputs.COMMIT_SHA }} |
           | Build Time | ${{ env.BUILD_TIME }} |
           | Status | ${{ env.BUILD_STATUS }} |
           
