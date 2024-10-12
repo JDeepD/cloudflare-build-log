@@ -1,0 +1,6 @@
+name: cloudflare-build-log
+description: Get your Cloudflare Build Logs in your Repository Pull Requests
+author: Jaydeep Das
+branding:
+  icon: 'paperclip'
+  color: 'white'
