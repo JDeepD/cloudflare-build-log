@@ -15,29 +15,47 @@ inputs:
   PROJECT_NAME:
     description: 'Cloudflare Pages project name'
     required: true
+  GITHUB_TOKEN:
+    description: 'GitHub token for creating/updating comments'
+    required: true
 
 runs:
   using: "composite"
   steps:
+    - name: Find Comment
+      uses: peter-evans/find-comment@v2
+      id: fc
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: 'github-actions[bot]'
+        body-includes: <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
+
     - name: Update comment with "Updating" status
       uses: peter-evans/create-or-update-comment@v3
       with:
+        token: ${{ inputs.GITHUB_TOKEN }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-id: ${{ steps.fc.outputs.comment-id }}
         body: |
-            <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
-            ## Cloudflare Pages Build Status
-            
-            | Key | Value |
-            | --- | ----- |
-            | Branch | ${{ github.head_ref }} |
-            | Commit | ${{ github.sha }} |
-            | Status | Updating... |
-            
-            Build in progress. This comment will be updated once the build is complete.
+          <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
+          ## Cloudflare Pages Build Status
+          
+          | Key | Value |
+          | --- | ----- |
+          | Branch | ${{ github.head_ref }} |
+          | Commit | ${{ github.sha }} |
+          | Status | Updating... |
+          
+          Build in progress. This comment will be updated once the build is complete.
         edit-mode: replace
+
     - name: Poll Cloudflare and Fetch logs
       shell: bash
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.CLOUDFLARE_API_TOKEN }}
+        ACCOUNT_ID: ${{ inputs.ACCOUNT_ID }}
+        PROJECT_NAME: ${{ inputs.PROJECT_NAME }}
+        PR_BRANCH: ${{ github.head_ref }}
       run: |
         fetch_latest_deployment() {
             RESPONSE=$(curl -s -X GET \
@@ -66,9 +84,11 @@ runs:
 
                 if [ "$STATUS" = "success" ] || [ "$STATUS" = "failed" ]; then
                     echo "Build completed with status: $STATUS"
+                    echo "BUILD_STATUS=$STATUS" >> $GITHUB_ENV
                     return 0
                 elif [ "$STATUS" = "canceled" ]; then
                     echo "Build was canceled"
+                    echo "BUILD_STATUS=canceled" >> $GITHUB_ENV
                     return 1
                 fi
 
@@ -78,6 +98,7 @@ runs:
             done
 
             echo "Timeout waiting for build to complete"
+            echo "BUILD_STATUS=timeout" >> $GITHUB_ENV
             return 1
         }
 
@@ -145,35 +166,32 @@ runs:
             echo "EOF" >> $GITHUB_ENV
         else
             echo "Failed to fetch logs: Build did not complete successfully"
-            exit 1
+            echo "logs=Failed to fetch logs: Build did not complete successfully" >> $GITHUB_ENV
         fi
-                
+        
+        echo "BUILD_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+
     - name: Update comment with build results
-      if: always()
       uses: peter-evans/create-or-update-comment@v3
       with:
+        token: ${{ inputs.GITHUB_TOKEN }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-id: ${{ steps.fc.outputs.comment-id }}
         body: |
-            <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
-            ## Cloudflare Pages Build Logs
-            
-            | Key | Value |
-            | --- | ----- |
-            | Branch | ${{ github.head_ref }} |
-            | Commit | ${{ github.sha }} |
-            | Build Time | ${{ env.BUILD_TIME }} |
-            | Status | ${{ env.BUILD_STATUS }} |
-            
-            <details>
-            <summary>Click to expand build logs</summary>
-                    
-            ${{ env.logs }}
-                    
-            </details>
+          <!-- CLOUDFLARE_PAGES_BUILD_LOGS -->
+          ## Cloudflare Pages Build Logs
+          
+          | Key | Value |
+          | --- | ----- |
+          | Branch | ${{ github.head_ref }} |
+          | Commit | ${{ github.sha }} |
+          | Build Time | ${{ env.BUILD_TIME }} |
+          | Status | ${{ env.BUILD_STATUS }} |
+          
+          <details>
+          <summary>Click to expand build logs</summary>
+          
+          ${{ env.logs }}
+          
+          </details>
         edit-mode: replace
-
-    - name: Post build status
-      if: always()
-      run: |
-         echo "Build status: ${{ job.status }}"
