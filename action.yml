@@ -86,7 +86,7 @@ runs:
                 DEPLOYMENT=$(fetch_latest_deployment)
                 STATUS=$(echo "$DEPLOYMENT" | jq -r '.latest_stage.status')
 
-                if [ "$STATUS" = "success" ] || [ "$STATUS" = "failed" ]; then
+                if [ "$STATUS" = "success" ] || [ "$STATUS" = "failure" ]; then
                     echo "Build completed with status: $STATUS"
                     echo "BUILD_STATUS=$STATUS" >> $GITHUB_ENV
                     return 0
