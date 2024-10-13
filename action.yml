@@ -51,6 +51,7 @@ runs:
           
           Build in progress. This comment will be updated once the build is complete.
         edit-mode: replace
+        create-if-not-exists: true
 
     - name: Poll Cloudflare and Fetch logs
       shell: bash
